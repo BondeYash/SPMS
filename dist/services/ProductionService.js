@@ -21,21 +21,32 @@ class ProductionService {
         this.workerRepository = data_source_1.AppDataSource.getRepository(Worker_1.Worker);
         this.sheetTypeRepository = data_source_1.AppDataSource.getRepository(SheetType_1.SheetType);
     }
+    formatDate(date) {
+        if (!date)
+            return "";
+        if (date instanceof Date) {
+            return date.toISOString().split("T")[0];
+        }
+        if (typeof date === "string" && date.includes("T")) {
+            return date.split("T")[0];
+        }
+        return String(date);
+    }
     createProductionEntry(data) {
         return __awaiter(this, void 0, void 0, function* () {
             const { workerId, date, entries } = data;
+            console.log(`[ProductionService.createProductionEntry] Creating entry for workerId: ${workerId}, date: ${date}`);
             // 1. Verify Worker exists
             const worker = yield this.workerRepository.findOneBy({ id: workerId });
             if (!worker) {
                 throw new Error("Worker not found");
             }
+            // Normalize date to YYYY-MM-DD format
+            const normalizedDate = this.formatDate(date);
+            console.log(`[ProductionService.createProductionEntry] Normalized date: ${normalizedDate}`);
             // 2. Check for Duplicate Entry (One submission per day Rule)
-            // We check if ANY entry exists for this worker on this date.
             const existingEntry = yield this.productionRepository.findOne({
-                where: {
-                    workerId,
-                    date,
-                },
+                where: { workerId, date: normalizedDate },
             });
             if (existingEntry) {
                 throw new Error("Worker has already submitted production for this date.");
@@ -49,127 +60,206 @@ class ProductionService {
                 }
                 const entry = new ProductionEntry_1.ProductionEntry();
                 entry.worker = worker;
-                entry.date = date;
+                entry.date = normalizedDate;
                 entry.sheetType = sheetType;
                 entry.quantity = item.quantity;
                 productionEntries.push(entry);
             }
-            // 4. Save all in a transaction (optional but good for data integrity)
-            // For simplicity using save method which handles array efficiently
-            return this.productionRepository.save(productionEntries);
+            console.log(`[ProductionService.createProductionEntry] Saving ${productionEntries.length} entries`);
+            const saved = yield this.productionRepository.save(productionEntries);
+            console.log(`[ProductionService.createProductionEntry] Successfully saved entries`);
+            return saved;
         });
     }
+    /**
+     * Returns worker history grouped by date (one object per day),
+     * each with items[], totalSheets, totalEarnings, and productionDate.
+     */
     getWorkerHistory(workerId) {
         return __awaiter(this, void 0, void 0, function* () {
-            return this.productionRepository.find({
+            var _a, _b;
+            const rawEntries = yield this.productionRepository.find({
                 where: { workerId },
                 relations: ["sheetType"],
                 order: { date: "DESC" },
             });
+            // Group by date
+            const dateMap = new Map();
+            for (const entry of rawEntries) {
+                const dateKey = this.formatDate(entry.date);
+                if (!dateMap.has(dateKey)) {
+                    dateMap.set(dateKey, {
+                        id: `${workerId}-${dateKey}`,
+                        workerId,
+                        productionDate: dateKey,
+                        totalSheets: 0,
+                        totalEarnings: "0",
+                        notes: null,
+                        createdAt: entry.createdAt,
+                        items: [],
+                    });
+                }
+                const group = dateMap.get(dateKey);
+                const qty = Number(entry.quantity);
+                const price = Number((_b = (_a = entry.sheetType) === null || _a === void 0 ? void 0 : _a.pricePerUnit) !== null && _b !== void 0 ? _b : 0);
+                const lineTotal = qty * price;
+                group.totalSheets += qty;
+                group.totalEarnings = (Number(group.totalEarnings) + lineTotal).toFixed(2);
+                group.items.push({
+                    sheetTypeId: entry.sheetTypeId,
+                    quantity: qty,
+                    pricePerUnit: price.toFixed(2),
+                    lineTotal: lineTotal.toFixed(2),
+                    sheetType: entry.sheetType
+                        ? {
+                            name: entry.sheetType.name,
+                            code: entry.sheetType.code,
+                            pricePerUnit: price.toFixed(2),
+                        }
+                        : null,
+                });
+            }
+            return Array.from(dateMap.values());
         });
     }
-    // Analytics: Total sheets and earnings in a day
+    // Analytics: Total sheets and earnings in a day (across all workers)
     getDailyStats(date) {
         return __awaiter(this, void 0, void 0, function* () {
+            // Ensure input date is also normalized if it's coming from an inconsistent source
+            const targetDate = this.formatDate(date);
             const entries = yield this.productionRepository.find({
-                where: { date },
-                relations: ["sheetType"],
+                where: { date: targetDate },
+                relations: ["sheetType", "worker"],
             });
             let totalSheets = 0;
             let totalEarnings = 0;
+            const workerMap = new Map();
             entries.forEach(entry => {
-                totalSheets += entry.quantity;
-                totalEarnings += entry.quantity * Number(entry.sheetType.price);
+                var _a, _b, _c, _d;
+                const qty = Number(entry.quantity);
+                const price = Number((_b = (_a = entry.sheetType) === null || _a === void 0 ? void 0 : _a.pricePerUnit) !== null && _b !== void 0 ? _b : 0);
+                totalSheets += qty;
+                totalEarnings += qty * price;
+                const wId = entry.workerId;
+                const prev = workerMap.get(wId) || { workerId: wId, workerName: (_d = (_c = entry.worker) === null || _c === void 0 ? void 0 : _c.name) !== null && _d !== void 0 ? _d : wId, sheets: 0, earnings: 0 };
+                prev.sheets += qty;
+                prev.earnings += qty * price;
+                workerMap.set(wId, prev);
             });
             return {
                 date,
                 totalSheets,
-                totalEarnings,
-                details: entries
+                totalEarnings: totalEarnings.toFixed(2),
+                workerBreakdown: Array.from(workerMap.values()),
             };
         });
     }
-    // Analytics: Total earnings in a selected month for a worker
+    /**
+     * Monthly stats for a single worker.
+     * Returns shape expected by frontend: workingDays, totalSheets, totalEarnings, averagePerDay, dailyBreakdown[]
+     */
     getMonthlyWorkerStats(workerId, year, month) {
         return __awaiter(this, void 0, void 0, function* () {
-            // Construct date range for the month
-            // Month is 1-indexed (1 = January, 12 = December)
-            const startDate = new Date(year, month - 1, 1);
-            const endDate = new Date(year, month, 0); // Last day of the month
-            // Format to YYYY-MM-DD for string query if needed, or use Between with strings
-            // Since we stored date as string YYYY-MM-DD
-            const startStr = startDate.toISOString().split('T')[0];
-            const endStr = endDate.toISOString().split('T')[0];
-            const entries = yield this.productionRepository.find({
+            var _a, _b;
+            const lastDay = new Date(year, month, 0).getDate();
+            const startStr = `${year}-${String(month).padStart(2, '0')}-01`;
+            const endStr = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+            const rawEntries = yield this.productionRepository.find({
                 where: {
                     workerId,
-                    date: (0, typeorm_1.Between)(startStr, endStr)
+                    date: (0, typeorm_1.Between)(startStr, endStr),
                 },
-                relations: ["sheetType"]
+                relations: ["sheetType"],
+                order: { date: "ASC" },
             });
-            let totalEarnings = 0;
+            // Group by date for dailyBreakdown
+            const dayMap = new Map();
             let totalSheets = 0;
-            entries.forEach(entry => {
-                totalSheets += entry.quantity;
-                totalEarnings += entry.quantity * Number(entry.sheetType.price);
-            });
+            let totalEarnings = 0;
+            for (const entry of rawEntries) {
+                const qty = Number(entry.quantity);
+                const price = Number((_b = (_a = entry.sheetType) === null || _a === void 0 ? void 0 : _a.pricePerUnit) !== null && _b !== void 0 ? _b : 0);
+                const earn = qty * price;
+                totalSheets += qty;
+                totalEarnings += earn;
+                const dateKey = this.formatDate(entry.date);
+                const prev = dayMap.get(dateKey) || { date: dateKey, sheets: 0, earnings: 0 };
+                prev.sheets += qty;
+                prev.earnings += earn;
+                dayMap.set(dateKey, prev);
+            }
+            const workingDays = dayMap.size;
+            const averagePerDay = workingDays > 0 ? totalEarnings / workingDays : 0;
+            const dailyBreakdown = Array.from(dayMap.values()).map(d => ({
+                date: d.date,
+                sheets: d.sheets,
+                earnings: d.earnings.toFixed(2),
+            }));
             return {
                 workerId,
                 year,
                 month,
                 totalSheets,
-                totalEarnings,
-                details: entries,
+                totalEarnings: totalEarnings.toFixed(2),
+                workingDays,
+                averagePerDay: averagePerDay.toFixed(2),
+                dailyBreakdown,
             };
         });
     }
-    // Optional: admin helper to get earnings of all workers for a month
+    // Admin: earnings for ALL workers for a month
     getMonthlyEarningsAll(year, month) {
         return __awaiter(this, void 0, void 0, function* () {
-            const startDate = new Date(year, month - 1, 1);
-            const endDate = new Date(year, month, 0);
-            const startStr = startDate.toISOString().split('T')[0];
-            const endStr = endDate.toISOString().split('T')[0];
+            const lastDay = new Date(year, month, 0).getDate();
+            const startStr = `${year}-${String(month).padStart(2, '0')}-01`;
+            const endStr = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+            console.log(`[ProductionService.getMonthlyEarningsAll] Fetching for year: ${year}, month: ${month}`);
+            console.log(`[ProductionService.getMonthlyEarningsAll] Date range: ${startStr} to ${endStr}`);
             const entries = yield this.productionRepository.find({
                 where: { date: (0, typeorm_1.Between)(startStr, endStr) },
-                relations: ["sheetType"],
+                relations: ["sheetType", "worker"],
             });
+            console.log(`[ProductionService.getMonthlyEarningsAll] Found ${entries.length} entries`);
             const map = new Map();
             entries.forEach(entry => {
-                var _a;
+                var _a, _b, _c, _d, _e;
+                console.log(`[ProductionService.getMonthlyEarningsAll] Entry: workerId=${entry.workerId}, date=${entry.date}, qty=${entry.quantity}`);
                 const w = entry.workerId;
-                const qty = Number(entry.quantity || 0);
-                const price = Number(((_a = entry.sheetType) === null || _a === void 0 ? void 0 : _a.price) || 0);
-                const val = map.get(w) || { workerId: w, totalSheets: 0, totalEarnings: 0 };
+                const qty = Number((_a = entry.quantity) !== null && _a !== void 0 ? _a : 0);
+                const price = Number((_c = (_b = entry.sheetType) === null || _b === void 0 ? void 0 : _b.pricePerUnit) !== null && _c !== void 0 ? _c : 0);
+                const val = map.get(w) || { workerId: w, workerName: (_e = (_d = entry.worker) === null || _d === void 0 ? void 0 : _d.name) !== null && _e !== void 0 ? _e : w, totalSheets: 0, totalEarnings: 0 };
                 val.totalSheets += qty;
                 val.totalEarnings += qty * price;
                 map.set(w, val);
             });
-            return Array.from(map.values());
+            const result = Array.from(map.values()).map(v => (Object.assign(Object.assign({}, v), { totalEarnings: v.totalEarnings.toFixed(2) })));
+            console.log(`[ProductionService.getMonthlyEarningsAll] Returning ${result.length} worker summaries`);
+            return result;
         });
     }
     getYearlyWorkerStats(workerId, year) {
         return __awaiter(this, void 0, void 0, function* () {
-            const startDate = new Date(year, 0, 1); // January 1st
-            const endDate = new Date(year + 1, 0, 1); // January 1st of next year
+            const startStr = `${year}-01-01`;
+            const endStr = `${year}-12-31`;
             const entries = yield this.productionRepository.find({
                 where: {
                     workerId,
-                    date: (0, typeorm_1.Between)(startDate.toISOString().split('T')[0], endDate.toISOString().split('T')[0])
+                    date: (0, typeorm_1.Between)(startStr, endStr),
                 },
-                relations: ["sheetType"]
+                relations: ["sheetType"],
             });
             let totalEarnings = 0;
             let totalSheets = 0;
             entries.forEach(entry => {
-                totalSheets += entry.quantity;
-                totalEarnings += entry.quantity * Number(entry.sheetType.price);
+                var _a, _b;
+                totalSheets += Number(entry.quantity);
+                totalEarnings += Number(entry.quantity) * Number((_b = (_a = entry.sheetType) === null || _a === void 0 ? void 0 : _a.pricePerUnit) !== null && _b !== void 0 ? _b : 0);
             });
             return {
                 workerId,
                 year,
                 totalSheets,
-                totalEarnings,
+                totalEarnings: totalEarnings.toFixed(2),
             };
         });
     }

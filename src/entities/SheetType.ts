@@ -9,8 +9,14 @@ export class SheetType {
     @Column()
     name: string;
 
+    @Column({ unique: true })
+    code: string;
+
     @Column("decimal", { precision: 10, scale: 2 })
-    price: number;
+    pricePerUnit: number;
+
+    @Column({ default: true })
+    isActive: boolean;
 
     @OneToMany(() => ProductionEntry, (entry) => entry.sheetType)
     productionEntries: ProductionEntry[];

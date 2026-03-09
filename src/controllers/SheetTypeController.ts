@@ -24,9 +24,10 @@ export class SheetTypeController {
         }
     };
 
+    // Returns active sheet types (used by workers and admin listing)
     getAll = async (req: Request, res: Response): Promise<void> => {
         try {
-            const sheetTypes = await this.sheetTypeService.getAllSheetTypes();
+            const sheetTypes = await this.sheetTypeService.getActiveSheetTypes();
             res.json(sheetTypes);
         } catch (error) {
             res.status(500).json({ message: "Error fetching sheet types", error });

@@ -20,7 +20,12 @@ __decorate([
     __metadata("design:type", String)
 ], CreateSheetTypeDto.prototype, "name", void 0);
 __decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsNotEmpty)(),
+    __metadata("design:type", String)
+], CreateSheetTypeDto.prototype, "code", void 0);
+__decorate([
     (0, class_validator_1.IsNumber)(),
     (0, class_validator_1.Min)(0),
     __metadata("design:type", Number)
-], CreateSheetTypeDto.prototype, "price", void 0);
+], CreateSheetTypeDto.prototype, "pricePerUnit", void 0);

@@ -5,7 +5,11 @@ export class CreateSheetTypeDto {
     @IsNotEmpty()
     name: string;
 
+    @IsString()
+    @IsNotEmpty()
+    code: string;
+
     @IsNumber()
     @Min(0)
-    price: number;
+    pricePerUnit: number;
 }

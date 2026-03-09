@@ -7,6 +7,7 @@ const sheetTypeController = new SheetTypeController();
 
 // Only admin can create sheet types
 router.post("/create-sheet-type", requireAuth, requireRole("admin"), sheetTypeController.create);
-router.get("/get-sheet-type", sheetTypeController.getAll);
+// Admins and workers can view active sheet types
+router.get("/get-sheet-type", requireAuth, sheetTypeController.getAll);
 
 export default router;

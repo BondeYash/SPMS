@@ -89,6 +89,7 @@ export class ProductionController {
         try {
             const workerId = (req as any).user?.id;
             const { year, month } = req.params;
+            console.log(`[ProductionController] getMyMonthlyStats for worker: ${workerId}, year: ${year}, month: ${month}`);
             if (!workerId) { res.status(401).json({ message: "Unauthorized" }); return; }
             if (!year || !month) { res.status(400).json({ message: "Missing parameters: year, month" }); return; }
 
@@ -112,16 +113,16 @@ export class ProductionController {
         }
     };
 
-    getYearlyStats = async (req : Request , res : Response) : Promise<void> => {
-        
-        const {workerId , year} = req.params;
+    getYearlyStats = async (req: Request, res: Response): Promise<void> => {
+
+        const { workerId, year } = req.params;
 
         try {
-            const stats = await this.productionService.getYearlyWorkerStats(workerId as string , Number(year));
+            const stats = await this.productionService.getYearlyWorkerStats(workerId as string, Number(year));
             res.json(stats);
         }
         catch (error) {
-            res.status(500).json({message : "Error fetching yearly stats" , error});
+            res.status(500).json({ message: "Error fetching yearly stats", error });
         }
     }
 }

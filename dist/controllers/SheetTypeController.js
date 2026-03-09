@@ -32,9 +32,10 @@ class SheetTypeController {
                 res.status(500).json({ message: "Error creating sheet type", error });
             }
         });
+        // Returns active sheet types (used by workers and admin listing)
         this.getAll = (req, res) => __awaiter(this, void 0, void 0, function* () {
             try {
-                const sheetTypes = yield this.sheetTypeService.getAllSheetTypes();
+                const sheetTypes = yield this.sheetTypeService.getActiveSheetTypes();
                 res.json(sheetTypes);
             }
             catch (error) {

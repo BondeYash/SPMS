@@ -51,6 +51,8 @@ __decorate([
     __metadata("design:type", Date)
 ], ProductionEntry.prototype, "createdAt", void 0);
 exports.ProductionEntry = ProductionEntry = __decorate([
-    (0, typeorm_1.Entity)(),
-    (0, typeorm_1.Index)(["worker", "date"], { unique: true }) // Enforce one entry per worker per day
+    (0, typeorm_1.Entity)()
+    // Unique per worker + date + sheetType to allow multiple sheet-type lines in one daily submission
+    ,
+    (0, typeorm_1.Index)(["workerId", "date", "sheetTypeId"], { unique: true })
 ], ProductionEntry);

@@ -102,6 +102,7 @@ class ProductionController {
             try {
                 const workerId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
                 const { year, month } = req.params;
+                console.log(`[ProductionController] getMyMonthlyStats for worker: ${workerId}, year: ${year}, month: ${month}`);
                 if (!workerId) {
                     res.status(401).json({ message: "Unauthorized" });
                     return;

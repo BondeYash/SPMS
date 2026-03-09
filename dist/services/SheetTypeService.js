@@ -24,7 +24,12 @@ class SheetTypeService {
     }
     getAllSheetTypes() {
         return __awaiter(this, void 0, void 0, function* () {
-            return this.sheetTypeRepository.find();
+            return this.sheetTypeRepository.find({ order: { name: "ASC" } });
+        });
+    }
+    getActiveSheetTypes() {
+        return __awaiter(this, void 0, void 0, function* () {
+            return this.sheetTypeRepository.find({ where: { isActive: true }, order: { name: "ASC" } });
         });
     }
 }

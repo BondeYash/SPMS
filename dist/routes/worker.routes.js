@@ -8,6 +8,9 @@ const workerController = new WorkerController_1.WorkerController();
 // Only admin can create workers and view the list
 router.post("/create-worker", auth_1.requireAuth, (0, auth_1.requireRole)("admin"), workerController.create);
 router.get("/get-worker", auth_1.requireAuth, (0, auth_1.requireRole)("admin"), workerController.getAll);
+// Admin: update and delete workers
+router.put("/:id", auth_1.requireAuth, (0, auth_1.requireRole)("admin"), workerController.update);
+router.delete("/:id", auth_1.requireAuth, (0, auth_1.requireRole)("admin"), workerController.delete);
 // Admin: lookup worker by short human-friendly code
 router.get("/by-code/:code", auth_1.requireAuth, (0, auth_1.requireRole)("admin"), workerController.getByCode);
 exports.default = router;

@@ -9,6 +9,10 @@ const workerController = new WorkerController();
 router.post("/create-worker", requireAuth, requireRole("admin"), workerController.create);
 router.get("/get-worker", requireAuth, requireRole("admin"), workerController.getAll);
 
+// Admin: update and delete workers
+router.put("/:id", requireAuth, requireRole("admin"), workerController.update);
+router.delete("/:id", requireAuth, requireRole("admin"), workerController.delete);
+
 // Admin: lookup worker by short human-friendly code
 router.get("/by-code/:code", requireAuth, requireRole("admin"), workerController.getByCode);
 

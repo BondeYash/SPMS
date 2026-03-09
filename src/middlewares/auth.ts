@@ -17,7 +17,12 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
     const token = auth.split(" ")[1];
     try {
         const payload: any = jwt.verify(token, JWT_SECRET);
-        req.user = { id: payload.sub, role: payload.role, email: payload.email };
+        req.user = {
+            id: payload.sub,
+            role: (payload.role || "").toLowerCase(),
+            email: payload.email
+        };
+        console.log(`[Auth] User ${req.user.id} authorized with role: ${req.user.role}`);
         next();
     } catch (err) {
         return res.status(401).json({ message: "Invalid token" });
@@ -27,7 +32,10 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
 export function requireRole(role: "admin" | "worker") {
     return (req: Request, res: Response, next: NextFunction) => {
         if (!req.user) return res.status(401).json({ message: "Unauthorized" });
-        if (req.user.role !== role) return res.status(403).json({ message: "Forbidden" });
+        if (req.user.role !== role) {
+            console.warn(`[Auth] Role mismatch: User has '${req.user.role}', but route requires '${role}'`);
+            return res.status(403).json({ message: "Forbidden" });
+        }
         next();
     };
 }

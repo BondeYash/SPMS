@@ -11,6 +11,10 @@ export class SheetTypeService {
     }
 
     async getAllSheetTypes(): Promise<SheetType[]> {
-        return this.sheetTypeRepository.find();
+        return this.sheetTypeRepository.find({ order: { name: "ASC" } });
+    }
+
+    async getActiveSheetTypes(): Promise<SheetType[]> {
+        return this.sheetTypeRepository.find({ where: { isActive: true }, order: { name: "ASC" } });
     }
 }
