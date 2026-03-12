@@ -1,0 +1,15 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const AttendanceController_1 = require("../controllers/AttendanceController");
+const auth_1 = require("../middlewares/auth");
+const router = (0, express_1.Router)();
+const controller = new AttendanceController_1.AttendanceController();
+router.post("/time-in", auth_1.requireAuth, (0, auth_1.requireRole)("worker"), controller.timeIn);
+router.get("/my-status", auth_1.requireAuth, (0, auth_1.requireRole)("worker"), controller.myStatus);
+router.get("/my-calendar", auth_1.requireAuth, (0, auth_1.requireRole)("worker"), controller.myCalendar);
+router.get("/pending", auth_1.requireAuth, (0, auth_1.requireRole)("admin"), controller.pending);
+router.get("/recent-approved", auth_1.requireAuth, (0, auth_1.requireRole)("admin"), controller.recentApproved);
+router.patch("/:id/approve", auth_1.requireAuth, (0, auth_1.requireRole)("admin"), controller.approve);
+router.patch("/:id/reject", auth_1.requireAuth, (0, auth_1.requireRole)("admin"), controller.reject);
+exports.default = router;

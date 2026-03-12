@@ -10,7 +10,7 @@ export const AppDataSource = new DataSource({
     username: process.env.DB_USERNAME || "root",
     password: process.env.DB_PASSWORD || "password",
     database: process.env.DB_NAME || "production_db",
-    synchronize: true, // Set to false in production and use migrations
+    synchronize: false, // Use migrations instead of automatic schema sync
     logging: false,
     entities: [__dirname + "/../entities/**/*.{js,ts}"],
     subscribers: [],
