@@ -1,7 +1,6 @@
 import { Router } from "express";
 import { SheetTypeController } from "../controllers/SheetTypeController";
 import { requireAuth, requireRole } from "../middlewares/auth";
-import { checkAttendance } from "../middlewares/checkAttendance";
 
 const router = Router();
 const sheetTypeController = new SheetTypeController();
@@ -13,11 +12,11 @@ router.post(
   requireRole("admin"),
   sheetTypeController.create
 );
-// Admins and workers can view active sheet types
+
+// Admins and workers can view active sheet types without attendance gating
 router.get(
   "/get-sheet-type",
   requireAuth,
-  checkAttendance,
   sheetTypeController.getAll
 );
 

@@ -6,7 +6,7 @@ import { checkAttendance } from "../middlewares/checkAttendance";
 const router = Router();
 const productionController = new ProductionController();
 
-// Worker creates production (authenticated worker)
+// Worker creates production (authenticated worker) - requires today's approved attendance
 router.post(
   "/create-production",
   requireAuth,
@@ -14,21 +14,20 @@ router.post(
   checkAttendance,
   productionController.create
 );
-// Worker gets own history
+
+// Worker gets own history - accessible whenever authenticated
 router.get(
   "/history/me",
   requireAuth,
   requireRole("worker"),
-  checkAttendance,
   productionController.getMyHistory
 );
 
-// Worker: view own monthly earnings
+// Worker: view own monthly earnings - accessible whenever authenticated
 router.get(
   "/stats/monthly/me/:year/:month",
   requireAuth,
   requireRole("worker"),
-  checkAttendance,
   productionController.getMyMonthlyStats
 );
 

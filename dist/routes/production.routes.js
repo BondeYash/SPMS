@@ -6,12 +6,12 @@ const auth_1 = require("../middlewares/auth");
 const checkAttendance_1 = require("../middlewares/checkAttendance");
 const router = (0, express_1.Router)();
 const productionController = new ProductionController_1.ProductionController();
-// Worker creates production (authenticated worker)
+// Worker creates production (authenticated worker) - requires today's approved attendance
 router.post("/create-production", auth_1.requireAuth, (0, auth_1.requireRole)("worker"), checkAttendance_1.checkAttendance, productionController.create);
-// Worker gets own history
-router.get("/history/me", auth_1.requireAuth, (0, auth_1.requireRole)("worker"), checkAttendance_1.checkAttendance, productionController.getMyHistory);
-// Worker: view own monthly earnings
-router.get("/stats/monthly/me/:year/:month", auth_1.requireAuth, (0, auth_1.requireRole)("worker"), checkAttendance_1.checkAttendance, productionController.getMyMonthlyStats);
+// Worker gets own history - accessible whenever authenticated
+router.get("/history/me", auth_1.requireAuth, (0, auth_1.requireRole)("worker"), productionController.getMyHistory);
+// Worker: view own monthly earnings - accessible whenever authenticated
+router.get("/stats/monthly/me/:year/:month", auth_1.requireAuth, (0, auth_1.requireRole)("worker"), productionController.getMyMonthlyStats);
 // Admin gets history of a specific worker
 router.get("/history/:workerId", auth_1.requireAuth, (0, auth_1.requireRole)("admin"), productionController.getHistory);
 // Get stats for a specific day (Query param: ?date=YYYY-MM-DD) - accessible to admins
